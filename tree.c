@@ -69,8 +69,19 @@ int size(struct p * somewhere) {
   }
 }
 
-int checkIntegrity() {
- 
+
+int checkIntegrity(struct p * somewhere) {
+  if (somewhere == NULL) {
+    return(0);
+  } else if (somewhere->left != NULL && maxValue(somewhere->left) > somewhere->data) {
+    return(0);
+  } else if (somewhere->right != NULL && minValue(somewhere->right) < somewhere->data) {
+    return(0);
+  } else if (!checkIntegrity(somewhere->left) || !checkIntegrity(somewhere->right)) {
+    return(0);
+  }
+
+  return(1);
 }
 
 
