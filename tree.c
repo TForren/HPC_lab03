@@ -17,25 +17,34 @@ struct p * newNode(int value) {
 }
 
 struct p * add(int v, struct p * somewhere) {
-  printf("adding %d\n",v);
   
   if (somewhere == NULL) {
-    printf("null. new node\n");
     return(newNode(v));
   } else {
     if (v <= somewhere->v) {
-      printf("less than current v. left of %d\n",somewhere->v);
       somewhere->left = add(v, somewhere->left);
     } else {
-      printf("greater than current v. right\n");
       somewhere->right = add(v, somewhere->right);
-
-      return(somewhere);
     }
+    return(somewhere);
   }
 }
 
-struct p * find(int v);
+struct p * find(int v, struct p * somewhere) {
+  if (somewhere == NULL) {
+    return NULL;
+  } else {
+    if (v == somewhere->v) {
+      return somewhere;
+    } else {
+      if (v < somewhere->v) {
+        find(v, somewhere->left);
+      } else {
+        find(v, somewhere->right);
+      }
+    }
+  }
+}
 
 struct p * add_if_not_present(int v, struct p * somewhere);
 
@@ -47,16 +56,12 @@ int main() {
   struct p *testTree = newNode(50);
 
   add(25,testTree);
-  printf("left %d\n",testTree->left->v); 
-  add(15,testTree);
- // add(35,testTree);
-  printf("root %d\n",testTree->v);
-  printf("left %d\n",testTree->left->v); 
+  add(15,testTree); 
+  add(75,testTree);
+  add(65,testTree);
+  add(85,testTree);
   
-  //add(75,testTree);
-  //add(65,testTree);
-  //add(85,testTree);
-
-  //printf("right %d\n",testTree->left->right->v); 
+  printf("right %d\n",testTree->right->v); 
+  find(20, testTree);
   return 0;
 }
