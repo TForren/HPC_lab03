@@ -7,6 +7,7 @@ struct p {
   struct p * right;
 };
 
+
 struct p * newNode(int value) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
 
@@ -16,41 +17,62 @@ struct p * newNode(int value) {
   return(node);
 }
 
+
 struct p * add(int v, struct p * somewhere) {
   
   if (somewhere == NULL) {
     return(newNode(v));
+  } else if (v <= somewhere->v) {
+    somewhere->left = add(v, somewhere->left);
   } else {
-    if (v <= somewhere->v) {
-      somewhere->left = add(v, somewhere->left);
-    } else {
-      somewhere->right = add(v, somewhere->right);
-    }
-    return(somewhere);
+    somewhere->right = add(v, somewhere->right);
   }
+  return(somewhere);
 }
+
 
 struct p * find(int v, struct p * somewhere) {
   if (somewhere == NULL) {
     return NULL;
+  } else if (v == somewhere->v) {
+    return somewhere;
+  } else if (v < somewhere->v) {
+    find(v, somewhere->left);
   } else {
-    if (v == somewhere->v) {
-      return somewhere;
-    } else {
-      if (v < somewhere->v) {
-        find(v, somewhere->left);
-      } else {
-        find(v, somewhere->right);
-      }
-    }
+    find(v, somewhere->right);
   }
 }
 
-struct p * add_if_not_present(int v, struct p * somewhere);
 
-int size();
+struct p * add_if_not_present(int v, struct p * somewhere) { 
+  if (somewhere == NULL) {
+    return(newNode(v));
+  } else if (v == somewhere->v) {
+    return NULL;
+  } else if (v < somewhere->v) {
+    somewhere->left = add(v, somewhere->left);
+  } else {
+    somewhere->right = add(v, somewhere->right);
+  }
+  return(somewhere);
+}
 
-int checkIntegrity();
+
+int size(struct p * somewhere) {
+  int c = 1;
+  if (node somewhere == NULL) {
+    return 0;
+  } else {
+    c += size(somewhere->left);
+    c += size(somewhere->right);
+    return c;
+  }
+}
+
+int checkIntegrity() {
+ 
+}
+
 
 int main() {
   struct p *testTree = newNode(50);
