@@ -1,17 +1,24 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <papi.h>
+#include <pthread.h>
+#define NUM_THREADS 16
 
 int i;
-static unsigned len = 16*(1 << 15);
- 
+static unsigned len = 16*(1 << 20);
+pthread_t tid[NUM_THREADS];
+int lock = 0;
+
 typedef struct p {
   int v;
   struct p * left;
   struct p * right;
 } p;
 
+struct p *tree;
 
+
+/* tree functions */
 struct p * newNode(int value) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
 
@@ -20,7 +27,6 @@ struct p * newNode(int value) {
   node->right = NULL;
   return(node);
 }
-
 
 struct p * add(int v, struct p * somewhere) {
   
@@ -34,7 +40,6 @@ struct p * add(int v, struct p * somewhere) {
   return(somewhere);
 }
 
-
 struct p * find(int v, struct p * somewhere) {
   if (somewhere == NULL) {
     return NULL;
@@ -46,7 +51,6 @@ struct p * find(int v, struct p * somewhere) {
     find(v, somewhere->right);
   }
 }
-
 
 struct p * add_if_not_present(int v, struct p * somewhere) { 
   if (somewhere == NULL) {
@@ -61,7 +65,6 @@ struct p * add_if_not_present(int v, struct p * somewhere) {
   return(somewhere);
 }
 
-
 int size(struct p * somewhere) {
   int c = 1;
   if (somewhere == NULL) {
@@ -72,7 +75,6 @@ int size(struct p * somewhere) {
     return c;
   }
 }
-
 
 int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
   if (somewhere == NULL) {
@@ -86,22 +88,30 @@ int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
 }
 
 
-
-void baseline(struct p * tree) {
+/* workload functions */
+void *baseline() {
   for(i = 0; i<len;i++) {
 
+    while (lock); 
+    
+    lock = 1;
+    
     add(random(),tree);  
 
     add_if_not_present(random(),tree);
-
+    
+    lock = 0;
   }
 }
 
-
-void curFunc(struct p * tree) {
-  //test(tree);
-  baseline(tree);
-  //seq(tree);
+void curFunc() {
+   int err;
+   for(i = 0; i < NUM_THREADS; i++) {
+   	err = pthread_create(&(tid[i]), NULL, &baseline, NULL); 
+   //test(tree);
+   //baseline(tree);
+   //seq(tree);
+  };
 };
 
 /* All that PAPI Goodness */ 
@@ -140,12 +150,10 @@ int main() {
     printf("can't add events!\n");
     exit(-4);
   }
-
-  int i;
-  struct p *tree;
+ 
   tree = (p *) malloc(len*sizeof(p)); 
   PAPI_start(eventset);
-  curFunc(tree);
+  curFunc();
   PAPI_stop(eventset,values);
   free(tree);
  
