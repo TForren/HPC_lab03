@@ -89,20 +89,11 @@ int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
 
 void baseline(struct p * tree) {
   for(i = 0; i<len;i++) {
+
     add(random(),tree);  
-  }
-}
 
+    add_if_not_present(random(),tree);
 
-void test(struct p * tree) {
-  for (i = 0; i<len;i++) {
-    add(10,tree);
-  }
-}
-
-void seq(struct p * tree) {
-  for (i = 0; i<len;i++) {
-    add(i,tree);
   }
 }
 
