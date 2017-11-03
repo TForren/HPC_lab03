@@ -1,33 +1,26 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <sys/time.h>
-#include <pthread.h>
-#define NUM_THREADS 16
+#include <papi.h>
 
-struct timeval t0;
-struct timeval t1;
-
-static unsigned len = 2000000;
-pthread_t tid[NUM_THREADS];
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
+int i;
+static unsigned len = 16*(1 << 15);
+ 
 typedef struct p {
   int v;
   struct p * left;
   struct p * right;
 } p;
 
-struct p *tree;
 
-/* tree functions */
 struct p * newNode(int value) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
-  
+
   node->v = value;
   node->left = NULL;
   node->right = NULL;
   return(node);
 }
+
 
 struct p * add(int v, struct p * somewhere) {
   
@@ -41,6 +34,7 @@ struct p * add(int v, struct p * somewhere) {
   return(somewhere);
 }
 
+
 struct p * find(int v, struct p * somewhere) {
   if (somewhere == NULL) {
     return NULL;
@@ -52,6 +46,7 @@ struct p * find(int v, struct p * somewhere) {
     find(v, somewhere->right);
   }
 }
+
 
 struct p * add_if_not_present(int v, struct p * somewhere) { 
   if (somewhere == NULL) {
@@ -66,6 +61,7 @@ struct p * add_if_not_present(int v, struct p * somewhere) {
   return(somewhere);
 }
 
+
 int size(struct p * somewhere) {
   int c = 1;
   if (somewhere == NULL) {
@@ -76,6 +72,7 @@ int size(struct p * somewhere) {
     return c;
   }
 }
+
 
 int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
   if (somewhere == NULL) {
@@ -88,48 +85,74 @@ int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
 	 checkIntegrity(somewhere->right, 2*index + 2, nodeCount));
 }
 
-/* workload functions */
-void *baseline() {
-  int i;
-  for(i = 0; i<len;i++) {
-  
-    pthread_mutex_lock(&mutex);
-  
-    add(random(),tree); 
 
-    add_if_not_present(random(),tree);
-    
-    pthread_mutex_unlock(&mutex);
-  
+
+void baseline(struct p * tree) {
+  for(i = 0; i<len;i++) {
+    add(random(),tree);  
   }
-  pthread_exit(NULL);
+  for(i = 0; i<len;i++) {
+    find(random(),tree);
+  } 
 }
 
-void curFunc() {
-   int i,err;
-   for(i = 0; i < NUM_THREADS; i++) {
-     err = pthread_create(&(tid[i]), NULL, &baseline, NULL); 
-   };
-   for(i = 0; i < NUM_THREADS; i++) {
-     err = pthread_join(tid[i],NULL);
-   };
+
+void test(struct p * tree) {
+  for (i = 0; i<len;i++) {
+    add(10,tree);
+  }
+}
+
+void seq(struct p * tree) {
+  for (i = 0; i<len;i++) {
+    add(i,tree);
+  }
+}
+
+
+void curFunc(struct p * tree) {
+  //test(tree);
+  baseline(tree);
+  //seq(tree);
 };
 
 /* All that PAPI Goodness */ 
+
+int events[1] = {PAPI_L2_DCM};
+int eventnum = 1;
 
 int main() {
   
   long long values[1];
   int eventset;
-   
+
+  if (PAPI_VER_CURRENT != PAPI_library_init(PAPI_VER_CURRENT)) {
+    printf("Can't initiate PAPI library!\n");
+    exit(-1);
+  }
+
+  eventset = PAPI_NULL;
+  if(PAPI_create_eventset(&eventset) != PAPI_OK) {
+    printf("can't create eventset!\n");
+    exit(-3);
+  }
+
+  if(PAPI_OK != PAPI_add_events(eventset, events, eventnum)) {
+    printf("can't add events!\n");
+    exit(-4);
+  }
+
+  int i;
+  struct p *tree;
   tree = (p *) malloc(len*sizeof(p)); 
-  tree->v = random();
-  gettimeofday(&t0,0);  
-  curFunc();
-  gettimeofday(&t1,0);
-   
-  double elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
-  printf("time: %f\n", elapsed / 1000000 );  
-  
+  PAPI_start(eventset);
+  curFunc(tree);
+  PAPI_stop(eventset,values);
+  free(tree);
+ 
+  char event_name[PAPI_MAX_STR_LEN];
+  if (PAPI_event_code_to_name( events[0], event_name ) == PAPI_OK)
+	printf("%s: %lld\n", event_name, values[0]);
+ 
   return 0;
 }
