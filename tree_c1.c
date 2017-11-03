@@ -1,10 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <papi.h>
+#include <sys/time.h>
 #include <pthread.h>
 #define NUM_THREADS 16
 
-static unsigned len = 16*(1 << 10 );
+struct timeval t0;
+struct timeval t1;
+
+static unsigned len = 16*(1 << 13 );
 pthread_t tid[NUM_THREADS];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -12,6 +16,7 @@ typedef struct p {
   int v;
   struct p * left;
   struct p * right;
+  pthread_mutex_t mutex;
 } p;
 
 struct p *tree;
@@ -19,7 +24,7 @@ struct p *tree;
 /* tree functions */
 struct p * newNode(int value) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
-
+  
   node->v = value;
   node->left = NULL;
   node->right = NULL;
@@ -87,7 +92,6 @@ int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
 
 /* workload functions */
 void *baseline() {
-  clock_t start = clock();
   int i;
   for(i = 0; i<len;i++) {
   
@@ -100,8 +104,6 @@ void *baseline() {
     pthread_mutex_unlock(&mutex);
   
   }
-  clock_t end = clock();
-  //printf("time: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);  
   pthread_exit(NULL);
 }
 
@@ -140,14 +142,16 @@ int main() {
     printf("can't add events!\n");
     exit(-4);
   }
- 
+   
   tree = (p *) malloc(len*sizeof(p)); 
   PAPI_start(eventset);
-  clock_t clock_start = clock();
+  gettimeofday(&t0,0);  
   curFunc();
-  clock_t clock_end = clock();
+  gettimeofday(&t1,0);
   PAPI_stop(eventset,values);
-  printf("time: %f\n", ((double)(clock_end - clock_start)) / CLOCKS_PER_SEC);  
+   
+  double elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+  printf("time: %f\n", elapsed / 1000000 );  
   
   char event_name[PAPI_MAX_STR_LEN];
   if (PAPI_event_code_to_name( events[0], event_name ) == PAPI_OK)

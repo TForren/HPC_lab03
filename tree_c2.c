@@ -2,20 +2,25 @@
 #include <stdio.h>
 #include <papi.h>
 #include <pthread.h>
+#include <sys/time.h>
 #define NUM_THREADS 16
 
-static unsigned len = 16*(1 << 10 );
+struct timeval t0;
+struct timeval t1;
+
+static unsigned len = 16*(1 << 13 );
 pthread_t tid[NUM_THREADS];
 pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t left_mutex = PTHREAD_MUTEX_INITIALIZER;
+int tmp = 1;
 pthread_mutex_t right_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct p {
   int v;
   struct p * left;
   struct p * right;
-  struct p * parentNode;
+  //struct p * parentNode;
   pthread_mutex_t mutex;
   //pthread_mutex_t left;
   //pthread_mutex_t right;
@@ -27,11 +32,11 @@ struct p *tree;
 struct p * newNode(int value, struct p * parent) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
   //pthread_mutex_t tmp = PTHREAD_MUTEX_INITIALIZER;
-  pthread_mutex_init(&node->mutex, NULL);
+  //pthread_mutex_init(&node->mutex, NULL);
   node->v = value;
   node->left = NULL;
   node->right = NULL;
-  node->parentNode = parent;
+  //node->parentNode = parent;
   return(node);
 }
 
@@ -56,6 +61,23 @@ struct p * add(int v, struct p * somewhere, struct p * parent) {
     somewhere->left = add(v, somewhere->left, somewhere);
   } else {
     somewhere->right = add(v, somewhere->right, somewhere);
+  }
+  return(somewhere);
+}
+
+
+struct p * addRoot(int v, struct p * somewhere, struct p * parent) {
+  //printf("%d\n", v);
+  if (somewhere == NULL) {
+    return(newNode(v,parent));
+  } else if (v <= somewhere->v) {
+    pthread_mutex_lock(&left_mutex);
+    somewhere->left = add(v, somewhere->left, somewhere);
+    pthread_mutex_unlock(&left_mutex);
+  } else {
+    pthread_mutex_lock(&right_mutex);
+    somewhere->right = add(v, somewhere->right, somewhere);
+    pthread_mutex_unlock(&right_mutex);
   }
   return(somewhere);
 }
@@ -87,10 +109,10 @@ struct p * add_if_not_present(int v, struct p * somewhere, struct p * parent) {
   } else if (v == somewhere->v) {
       return NULL;
   } else {
-    if (v < somewhere->v) {
-      somewhere->left = add_if_not_present(v, somewhere->left, somewhere);
+    if (v <= somewhere->v) {
+      somewhere->left = add(v, somewhere->left, somewhere);
     } else {
-      somewhere->right = add_if_not_present(v, somewhere->right, somewhere);
+      somewhere->right = add(v, somewhere->right, somewhere);
     }
   }
   return(somewhere);
@@ -188,7 +210,7 @@ void *meh() {
     
     add2(random(),tree,tree);
 
-    add_if_not_present2(random(),tree,tree);
+    //add_if_not_present2(random(),tree,tree);
 
   }
 }
@@ -197,9 +219,9 @@ void *better() {
   int i;
   for(i = 0; i<len; i++) {
      
-    //add3(random(),tree,tree);
+    addRoot(random(),tree,tree);
     
-    add_if_not_present3(random(),tree,tree);
+    add_if_not_present(random(),tree,tree);
 
   }
 }
@@ -208,7 +230,7 @@ void curFunc() {
    int i;
    int err;
    for(i = 0; i < NUM_THREADS; i++) {
-   	err = pthread_create(&(tid[i]), NULL, &meh, NULL); 
+   	err = pthread_create(&(tid[i]), NULL, &better, NULL); 
    };
    for(i = 0; i < NUM_THREADS; i++) {
    	pthread_join(tid[i],NULL);
@@ -242,12 +264,14 @@ int main() {
   }
  
   tree = (p *) malloc(len*sizeof(p)); 
+  tree->v = random();
   PAPI_start(eventset);
-  clock_t clock_start = clock();
+  gettimeofday(&t0,0);
   curFunc();
-  clock_t clock_end = clock();
+  gettimeofday(&t1,0);
   PAPI_stop(eventset,values);
-  printf("time: %f\n", ((double)(clock_end - clock_start)) / CLOCKS_PER_SEC);
+  double elapsed = (t1.tv_sec-t0.tv_sec)*1000000 + t1.tv_usec-t0.tv_usec;
+  printf("time: %f\n", elapsed/ 1000000 );
  
   char event_name[PAPI_MAX_STR_LEN];
   if (PAPI_event_code_to_name( events[0], event_name ) == PAPI_OK)
