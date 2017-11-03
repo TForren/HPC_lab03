@@ -4,7 +4,7 @@
 #include <pthread.h>
 #define NUM_THREADS 16
 
-static unsigned len = 16*(1 << 5 );
+static unsigned len = 16*(1 << 10 );
 pthread_t tid[NUM_THREADS];
 pthread_mutex_t full_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -26,8 +26,8 @@ struct p *tree;
 /* tree functions */
 struct p * newNode(int value, struct p * parent) {
   struct p * node = (struct p*)malloc(sizeof(struct p));
-  pthread_mutex_t tmp = PTHREAD_MUTEX_INITIALIZER;
-  node->mutex = tmp;
+  //pthread_mutex_t tmp = PTHREAD_MUTEX_INITIALIZER;
+  pthread_mutex_init(&node->mutex, NULL);
   node->v = value;
   node->left = NULL;
   node->right = NULL;
@@ -64,44 +64,17 @@ struct p * add(int v, struct p * somewhere, struct p * parent) {
 struct p * add2(int v, struct p * somewhere, struct p * parent) {
   
   if (somewhere == NULL) {
-    printf("tmp\n");
+    //printf("tmp\n");
+    pthread_mutex_unlock(&parent->mutex);
     return(newNode(v,parent));
   } else {
     pthread_mutex_lock(&somewhere->mutex);
-    pthread_mutex_unlock(&parent->mutex);
+    if (somewhere != parent) 
+    	pthread_mutex_unlock(&parent->mutex);
     if (v <= somewhere->v) {
-      printf("left add\n");
       somewhere->left = add2(v, somewhere->left, somewhere);
     } else {
-      printf("right add\n");
       somewhere->right = add2(v, somewhere->right, somewhere);
-    }
-  }
-  return(somewhere);
-}
-
-
-struct p * add3(int v, struct p * somewhere, struct p * parent) {
-
-  if (somewhere == NULL) {
-    return(newNode(v,parent));
-  } else {
-    if (v <= somewhere->v) {
-      if (somewhere->left == NULL) { 
-        pthread_mutex_lock(&somewhere->mutex);
-        somewhere->left = add3(v, somewhere->left, somewhere);
-	pthread_mutex_unlock(&parent->mutex);
-      } else {
-        somewhere->left = add3(v, somewhere->left, somewhere);
-      }	
-    } else {
-      if (somewhere->right == NULL) { 
-        pthread_mutex_lock(&somewhere->mutex);
-        somewhere->right = add3(v, somewhere->right, somewhere);
-        pthread_mutex_unlock(&parent->mutex);
-      } else { 
-	somewhere->right = add3(v, somewhere->right, somewhere);
-      }
     }
   }
   return(somewhere);
@@ -125,13 +98,17 @@ struct p * add_if_not_present(int v, struct p * somewhere, struct p * parent) {
 
 struct p * add_if_not_present2(int v, struct p * somewhere, struct p * parent) { 
   if (somewhere == NULL) {
+    //printf("fef\n");
+    pthread_mutex_unlock(&parent->mutex);    
     return(newNode(v,parent));
   } else if (v == somewhere->v) {
+      pthread_mutex_unlock(&parent->mutex);
       return NULL;
   } else {
     pthread_mutex_lock(&somewhere->mutex);
-    pthread_mutex_unlock(&parent->mutex);
-    if (v < somewhere->v) {
+    if (somewhere != parent) 
+    	pthread_mutex_unlock(&parent->mutex);
+    if (v <= somewhere->v) {
       somewhere->left = add_if_not_present2(v, somewhere->left, somewhere);
     } else {
       somewhere->right = add_if_not_present2(v, somewhere->right, somewhere);
@@ -211,7 +188,7 @@ void *meh() {
     
     add2(random(),tree,tree);
 
-    //add_if_not_present2(random(),tree,tree);
+    add_if_not_present2(random(),tree,tree);
 
   }
 }
@@ -220,7 +197,7 @@ void *better() {
   int i;
   for(i = 0; i<len; i++) {
      
-    add3(random(),tree,tree);
+    //add3(random(),tree,tree);
     
     add_if_not_present3(random(),tree,tree);
 

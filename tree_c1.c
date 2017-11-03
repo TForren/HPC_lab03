@@ -4,7 +4,7 @@
 #include <pthread.h>
 #define NUM_THREADS 16
 
-static unsigned len = 16*(1 << 20 );
+static unsigned len = 16*(1 << 10 );
 pthread_t tid[NUM_THREADS];
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -101,7 +101,7 @@ void *baseline() {
   
   }
   clock_t end = clock();
-  printf("time: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);  
+  //printf("time: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);  
   pthread_exit(NULL);
 }
 
@@ -148,7 +148,7 @@ int main() {
   clock_t clock_end = clock();
   PAPI_stop(eventset,values);
   printf("time: %f\n", ((double)(clock_end - clock_start)) / CLOCKS_PER_SEC);  
-
+  
   char event_name[PAPI_MAX_STR_LEN];
   if (PAPI_event_code_to_name( events[0], event_name ) == PAPI_OK)
 	printf("%s: %lld\n", event_name, values[0]);
