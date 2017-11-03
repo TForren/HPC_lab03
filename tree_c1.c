@@ -4,10 +4,9 @@
 #include <pthread.h>
 #define NUM_THREADS 16
 
-int i;
-static unsigned len = 16*(1 << 20);
+static unsigned len = 16*(1 << 20 );
 pthread_t tid[NUM_THREADS];
-int lock = 0;
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct p {
   int v;
@@ -16,7 +15,6 @@ typedef struct p {
 } p;
 
 struct p *tree;
-
 
 /* tree functions */
 struct p * newNode(int value) {
@@ -87,31 +85,34 @@ int checkIntegrity(struct p * somewhere, int index, int nodeCount) {
 	 checkIntegrity(somewhere->right, 2*index + 2, nodeCount));
 }
 
-
 /* workload functions */
 void *baseline() {
+  clock_t start = clock();
+  int i;
   for(i = 0; i<len;i++) {
-
-    while (lock); 
-    
-    lock = 1;
-    
-    add(random(),tree);  
+  
+    pthread_mutex_lock(&mutex);
+  
+    add(random(),tree); 
 
     add_if_not_present(random(),tree);
     
-    lock = 0;
+    pthread_mutex_unlock(&mutex);
+  
   }
+  clock_t end = clock();
+  printf("time: %f\n", ((double)(end - start)) / CLOCKS_PER_SEC);  
+  pthread_exit(NULL);
 }
 
 void curFunc() {
-   int err;
+   int i,err;
    for(i = 0; i < NUM_THREADS; i++) {
-   	err = pthread_create(&(tid[i]), NULL, &baseline, NULL); 
-   //test(tree);
-   //baseline(tree);
-   //seq(tree);
-  };
+     err = pthread_create(&(tid[i]), NULL, &baseline, NULL); 
+   };
+   for(i = 0; i < NUM_THREADS; i++) {
+     err = pthread_join(tid[i],NULL);
+   };
 };
 
 /* All that PAPI Goodness */ 
@@ -120,18 +121,7 @@ int events[1] = {PAPI_L2_DCM};
 int eventnum = 1;
 
 int main() {
-/*  struct p *testTree = newNode(50);
-
-  add(25,testTree);
-  add(15,testTree); 
-  add(75,testTree);
-  add(65,testTree);
-  add(85,testTree);
   
-  printf("right %d\n",testTree->right->v); 
-  find(20, testTree);
-*/
-
   long long values[1];
   int eventset;
 
@@ -153,10 +143,12 @@ int main() {
  
   tree = (p *) malloc(len*sizeof(p)); 
   PAPI_start(eventset);
+  clock_t clock_start = clock();
   curFunc();
+  clock_t clock_end = clock();
   PAPI_stop(eventset,values);
-  free(tree);
- 
+  printf("time: %f\n", ((double)(clock_end - clock_start)) / CLOCKS_PER_SEC);  
+
   char event_name[PAPI_MAX_STR_LEN];
   if (PAPI_event_code_to_name( events[0], event_name ) == PAPI_OK)
 	printf("%s: %lld\n", event_name, values[0]);
